@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wiser Ball — 計分器</title>
+<style>
+  /* ===== 全域樣式 ===== */
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto;
+    padding: 16px;
+    max-width: 1100px;
+    margin: auto;
+    background: #fdfdfd;
+  }
+  h1, h3, h4 {
+    margin: 6px 0 12px;
+  }
+  .row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  select, input, button {
+    font-size: 15px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+  }
+  .btn {
+    font-size: 16px;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .btn:disabled {
+    background-color: #aaa !important;
+    cursor: not-allowed;
+  }
+  #btnInit { background-color: #4CAF50; }  /* 綠色 */
+  #btnHit { background-color: #2196F3; }   /* 藍色 */
+  #btnUndo { background-color: #FF9800; }  /* 橘色 */
+  #btnCalc { background-color: #F44336; }  /* 紅色 */
+  #btnPdf { background-color: #2196F3; }   /* 藍色 */
+  .danger { background:#d9534f; }
+
+  /* ===== Header 區塊 ===== */
+  .header-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .timer-block {
+    font-size: 24px;
+    font-weight: bold;
+    color: #d32f2f;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .timer-block button {
+    font-size: 16px;
+    padding: 6px 10px;
+  }
+
+  /* ===== 比賽資訊表格 ===== */
+  .match-info {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 10px;
+  }
+  .match-info td {
+    border: 1px solid #ccc;
+    padding: 6px;
+    word-break: break-word;
+    vertical-align: top;
+  }
+  .match-info input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  @media(max-width: 600px) {
+    .match-info, .match-info tr, .match-info td {
+      display: block;
+      width: 100%;
+    }
+    .match-info td {
+      margin-bottom: 6px;
+    }
+  }
+
+  /* ===== 計分板與球狀態 ===== */
+  .board {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 12px;
+  }
+  .team-card {
+    border: 1px solid #ddd;
+    padding: 12px;
+    border-radius: 8px;
+    flex: 1;
+    background: #fff;
+  }
+  .balls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ball {
+    width: 80px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #bbb;
+    text-align: center;
+    background: #fff;
+  }
+  .s0 { background:#fff }       /* 競技球 */
+  .s1 { background:#fff7c0 }   /* 初關(黃) */
+  .s2 { background:#ffd0d0 }   /* 二關(紅) */
+  .s3 { background:#eee; text-decoration: line-through } /* 淘汰 */
+
+  /* ===== 歷史紀錄區 ===== */
+  #history {
+    height: 240px;
+    overflow: auto;
+    border: 1px solid #ddd;
+    padding: 8px;
+    background: #fafafa;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+  .small {
+    font-size: 13px;
+    color: #666;
+  }
+
+  /* ===== 計分結果與 Shootout ===== */
+  .scorecard {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    background: #f7f7f7;
+    border: 1px solid #eee;
+  }
+  .shootout {
+    margin-top: 12px;
+    border: 1px dashed #ccc;
+    padding: 8px;
+    border-radius: 6px;
+    background: #fff;
+  }
+  details summary {
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    margin-bottom: 6px;
+  }
+
+  /* 比賽結果表格樣式 */
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 15px;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .result-table th, .result-table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+  }
+  .result-table th {
+    background: #f2f2f2;
+    font-weight: bold;
+  }
+  .result-table td b {
+    font-size: 16px;
+    color: #333;
+  }
+  /* 手機版：直向顯示 */
+  /* @media(max-width:600px){
+    .result-table, .result-table thead, .result-table tbody, .result-table tr {
+      display: block;
+      width: 100%;
+    }
+    .result-table tr {
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .result-table td, .result-table th {
+      display: block;
+      text-align: left;
+      padding: 8px;
+      border: none;
+      border-bottom: 1px solid #eee;
+    }
+    .result-table td:last-child {
+      border-bottom: none;
+    }
+  }
+  */
+
+@media screen and (max-width: 600px) {
+  .result-table {
+    display: flex;
+    flex-direction: column;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .result-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #ccc;
+    padding: 5px 0;
+  }
+
+  .result-table th,
+  .result-table td {
+    flex: 1 1 100%;
+    padding: 5px;
+    box-sizing: border-box;
+  }
+
+  .result-table tr:first-child {
+    flex-direction: row;
+  }
+
+  .result-table tr:first-child th {
+    flex: 1 1 33%;
+    text-align: center;
+  }
+
+  .result-table tr td:nth-child(2),
+  .result-table tr td:nth-child(3) {
+    flex: 1 1 50%;
+    text-align: left;
+  }
+
+  .result-table tr td:first-child {
+    flex: 1 1 100%;
+    font-weight: bold;
+    margin-top: 10px;
+  }
+}
+
+
+</style>
+</head>
+<body>
+  
+<div class="header-bar">
+  <h1>Wiser Ball — 計分器</h1>
+  <div class="timer-block">
+    比賽計時: <span id="timer">15:00</span>
+    <button onclick="startTimer()">開始</button>
+    <button onclick="pauseTimer()">暫停</button>
+    <button onclick="resetTimer()">重設</button>
+  </div>
+</div>
+
+<div id="matchArea">
+<div id="matchInfo">
+<!-- 比賽資訊 -->
+<details open>
+  <summary>比賽資訊</summary>
+  <table class="match-info">
+  <tr>
+    <td>
+      <label><span>地點</span><input type="text" id="location"></label>
+      <label><span>場次</span><input type="text" id="round"></label>
+    </td>
+    <td>
+      <label><span>計分員</span><input type="text" id="scorer"></label>
+      <label><span>裁判員</span><input type="text" id="referee"></label>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <label><span>日期</span><input type="date" id="matchDate"></label>
+      <label><span>時間</span><input type="time" id="startTime"> ~ <input type="time" id="endTime"></label>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <div class="row">
+        <label><span>紅球隊名：</span><input id="teamAname" value="紅隊"></label>
+        <label><span>白球隊名：</span><input id="teamBname" value="白隊"></label>
+        <label><span>每隊球數：</span><input id="ballsPerTeam" type="number" value="7" min="1" max="7" style="width:70px"></label>
+        <button id="btnInit" class="btn">建立場次</button>
+      </div>
+    </td>
+  </tr>
+  </table>
+</details>
+</div>
+
+
+<!-- 控制區 -->
+<div class="row controls">
+  <label>攻擊方: <select id="attTeam"></select></label>
+  <label>攻擊球號: <select id="attBall"></select></label>
+  <label>目標隊: <select id="tgtTeam"></select></label>
+  <label>目標球號: <select id="tgtBall"></select></label>
+  <button id="btnHit" class="btn">執行擊中</button>
+  <button id="btnUndo" class="btn">Undo Last</button>
+ </div>
+
+<!-- 計分板 -->
+<div class="board" id="boardArea"></div>
+
+<div id="resultTableWrapper">
+<!-- 計分結果 -->
+<div id="scoreArea" class="scorecard" style="display:none"></div>
+<!-- 比賽結果區塊 -->
+<details>
+  <summary>比賽結果</summary>
+
+  <!-- 結束比賽按鈕 -->
+  <div style="margin:10px 0;">
+    <button id="btnCalc" class="btn">結束比賽 (計分)</button>
+    <button id="btnPdf" class="btn">產生 PDF</button>
+  </div>
+
+  <!-- 結果表格 -->
+  <table class="result-table" id="resultTable">
+  <thead>
+    <tr>
+      <th>項目</th>
+      <th id="resultTeamA">紅隊</th>
+      <th id="resultTeamB">白隊</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>競技</td>
+      <td><span id="teamA_competitive">0</span> 顆<br>分數：<span id="teamA_competitiveScore">0</span></td>
+      <td><span id="teamB_competitive">0</span> 顆<br>分數：<span id="teamB_competitiveScore">0</span></td>
+    </tr>
+    <tr>
+      <td>初關</td>
+      <td><span id="teamA_firstLock">0</span> 顆<br>分數：<span id="teamA_firstLockScore">0</span></td>
+      <td><span id="teamB_firstLock">0</span> 顆<br>分數：<span id="teamB_firstLockScore">0</span></td>
+    </tr>
+    <tr>
+      <td>二關</td>
+      <td><span id="teamA_secondLock">0</span> 顆<br>分數：<span id="teamA_secondLockScore">0</span></td>
+      <td><span id="teamB_secondLock">0</span> 顆<br>分數：<span id="teamB_secondLockScore">0</span></td>
+    </tr>
+    <tr>
+      <td><b>加總分數</b></td>
+      <td><b><span id="teamA_totalScore">0</span></b></td>
+      <td><b><span id="teamB_totalScore">0</span></b></td>
+    </tr>
+    <!-- 新增：比賽結果 -->
+    <tr>
+      <td><b>比賽結果</b></td>
+      <td><span id="teamA_result">-</span></td>
+      <td><span id="teamB_result">-</span></td>
+    </tr>
+    <!-- 新增：隊長簽名 -->
+    <tr>
+      <td><b>隊長簽名</b></td>
+      <td style="height:40px"></td>
+      <td style="height:40px"></td>
+    </tr>
+  </tbody>
+  </table>
+</details>
+</div>
+</div>
+
+<!-- 歷史紀錄 -->
+<div id="history" aria-live="polite"></div>
+
+<!-- Shootout 區 -->
+<div id="shootoutArea"></div>
+
+<!-- JS 程式碼（保留你原有邏輯與規則實作） -->
+<script>
+/*
+ Implementation notes (依手冊):
+ - ball.state: 0=競技球,1=初關(黃),2=二關(紅),3=淘汰
+ - ball.locked_by: array of attacker keys (strings "team-ball"), 每次被擊中就 push(attackerKey)
+   解關時要移除指定 attackerKey 的那個 entry（若多個由多次擊中造成）
+ - 誤擊: 當 attacker.team == target.team 時 -> attacker 出局 (state=3),
+   target.state +=1 並把 locked_by.push("MIS-"+attackerKey)；要解救誤擊產生的被關
+   需要擊中「沒有鎖住我方任何球的對方球」，此實作會在攻擊對方球時，先看該被擊中球
+   是否有鎖住我方球，若沒有，則會用該動作來解救誤擊被關（依手冊規範）。
+ - 加權計分: 競技球=5, 初關=2, 二關=1, 淘汰=0
+ - 若加權平手 -> 進入 5 米定點球 (shootout)，以 5 人輪流，仍然平手進入 sudden death
+*/
+
+let timerDuration = 90 * 60; // 預設 90 分鐘 (秒數)
+  let timer = timerDuration;
+  let timerInterval = null;
+
+  function updateDisplay() {
+    let minutes = Math.floor(timer / 60);
+    let seconds = timer % 60;
+    document.getElementById("timer").innerText =
+      String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+  }
+
+  function startTimer() {
+    if (timerInterval) return; // 避免重複啟動
+    timerInterval = setInterval(() => {
+      if (timer > 0) {
+        timer--;
+        updateDisplay();
+      } else {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        alert("⏰ 比賽時間到！");
+        // 這裡可以觸發加權計分
+        calcWeightedScore();
+      }
+    }, 1000);
+
+    // 🔹 新增 log
+    pushHistory("⏱️ 計時開始");
+  }
+
+  function pauseTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    // 🔹 新增 log
+    pushHistory("⏸️ 計時暫停");
+  }
+
+  function resetTimer() {
+    pauseTimer();
+    timer = timerDuration;
+    updateDisplay();
+    // 🔹 新增 log
+    pushHistory("🔄 計時重設");
+  }
+
+  // 初始化顯示
+  updateDisplay();
+
+//======================================================================
+function addPause(team){
+  state.stats[team].pause++;
+  document.getElementById(`${team}-pause`).innerText = state.stats[team].pause;
+  pushHistory(`${team} 使用暫停 (累計 ${state.stats[team].pause})`);
+}
+
+function addFoul(team){
+  state.stats[team].foul++;
+  document.getElementById(`${team}-foul`).innerText = state.stats[team].foul;
+  pushHistory(`${team} 犯規 (累計 ${state.stats[team].foul})`);
+}
+
+function addSetup(team){
+  if(state.stats[team].setup < 3){
+    state.stats[team].setup++;
+    document.getElementById(`${team}-setup`).innerText = state.stats[team].setup;
+    pushHistory(`${team} 佈球次數 +1 (累計 ${state.stats[team].setup})`);
+
+    // 如果達到3次 → 隱藏 +1 按鈕
+    if(state.stats[team].setup >= 3){
+      document.getElementById(`${team}-setup-btn`).style.display = "none";
+    }
+  }
+}
+
+function resetSetup(team){
+  state.stats[team].setup = 0;
+  document.getElementById(`${team}-setup`).innerText = state.stats[team].setup;
+  pushHistory(`${team} 重設佈球次數`);
+
+  // 重新顯示 +1 按鈕
+  const btn = document.getElementById(`${team}-setup-btn`);
+  if(btn) btn.style.display = "inline-block";
+}
+
+
+//=============================================================================
+document.getElementById("btnInit").addEventListener("click", () => {
+    initGame();
+
+    const a = document.getElementById('teamAname').value || '紅隊';
+    const b = document.getElementById('teamBname').value || '白隊';
+    const n = document.getElementById('ballsPerTeam').value || 7;
+    pushHistory(`🏟️ 建立場次：${a} vs ${b}，每隊 ${n} 顆球`);
+
+    // 鎖住輸入框
+    document.getElementById("teamAname").setAttribute("readonly", true);
+    document.getElementById("teamBname").setAttribute("readonly", true);
+    document.getElementById("ballsPerTeam").setAttribute("readonly", true);
+
+    // 禁用按鈕
+    document.getElementById("btnInit").disabled = true;
+
+    
+  });
+//=============================================================================
+
+let state = {
+  teams: [],
+  ballsPerTeam: 7,
+  balls: {}, // key "Team-idx" => {team,id,state,locked_by:[]}
+  history: [],
+  undoStack: []
+};
+
+const WEIGHT = {0:5, 1:2, 2:1, 3:0}; // 依手冊
+
+function initGame(){
+  const ta = document.getElementById('teamAname').value || 'A';
+  const tb = document.getElementById('teamBname').value || 'B';
+  const a = '紅球';
+  const b = '白球';
+  const n = parseInt(document.getElementById('ballsPerTeam').value)||7;
+  state.teams = [a,b];
+  state.ballsPerTeam = n;
+  state.balls = {};
+  state.history = [];
+  state.undoStack = [];
+  for(const t of state.teams){
+    for(let i=1;i<=n;i++){
+      state.balls[`${t}-${i}`] = {team:t, id:i, state:0, locked_by:[]};
+    }
+  }
+  renderSelectors();
+  renderBoard();
+  
+  // 🔹 更新比賽結果表的隊名
+  document.getElementById("resultTeamA").innerText = ta;
+  document.getElementById("resultTeamB").innerText = tb;
+}
+
+//攻擊方 改變 → 攻擊球號 只會顯示「狀態=競技」的球號
+//目標隊 改變 → 目標球號 只會顯示「未淘汰 (state < 3)」的球
+
+function renderSelectors(){
+  const attT = document.getElementById('attTeam');
+  const tgtT = document.getElementById('tgtTeam');
+  const attB = document.getElementById('attBall');
+  const tgtB = document.getElementById('tgtBall');
+
+  // 清空下拉
+  attT.innerHTML=''; 
+  tgtT.innerHTML='';
+  attB.innerHTML=''; 
+  tgtB.innerHTML='';
+
+  // 填入隊伍選項
+  for(const t of state.teams){ 
+    attT.append(new Option(t,t)); 
+    tgtT.append(new Option(t,t)); 
+  }
+
+  // 預設顯示第一隊的合法攻擊球
+  updateAttackerBalls();
+
+  // 綁定事件 → 當攻擊方變更時，更新攻擊球號選單
+  attT.onchange = updateAttackerBalls;
+  tgtT.onchange = updateTargetBalls;
+
+  // 初始化目標球
+  updateTargetBalls();
+
+  // ---- 內部函式 ----
+  function updateAttackerBalls(){
+    attB.innerHTML = '';
+    const team = attT.value;
+    for(let i=1;i<=state.ballsPerTeam;i++){
+      const b = state.balls[`${team}-${i}`];
+      if(b && b.state === 0){   // 只列出「競技」狀態的球
+        attB.append(new Option(i,i));
+      }
+    }
+  }
+
+  function updateTargetBalls(){
+    tgtB.innerHTML = '';
+    const team = tgtT.value;
+    for(let i=1;i<=state.ballsPerTeam;i++){
+      const b = state.balls[`${team}-${i}`];
+      if(b && b.state < 3){   // 目標只要還沒淘汰的球
+        tgtB.append(new Option(i,i));
+      }
+    }
+  }
+}
+
+
+function renderBoard(){
+  const area = document.getElementById('boardArea');
+  area.innerHTML = '';
+
+  for(const t of state.teams){
+    // 初始化隊伍統計資料
+    if(!state.stats) state.stats = {};
+    if(!state.stats[t]) {
+      state.stats[t] = {pause:0, foul:0, setup:0};
+    }
+
+    const card = document.createElement('div');
+    card.className='team-card';
+
+    // 🔹 Header：系統隊名 (紅球/白球) + 使用者輸入的隊名
+    const headerRow = document.createElement('div');
+    headerRow.style.display = "flex";
+    headerRow.style.justifyContent = "space-between";
+    headerRow.style.alignItems = "center";
+    headerRow.style.marginBottom = "6px";
+    headerRow.style.flexWrap = "wrap"; // RWD，自動換行
+
+    const h = document.createElement('h3');
+    h.textContent = `${t}`; // 系統隊名
+    h.style.margin = "0";
+
+    const teamNameLabel = document.createElement('div');
+    teamNameLabel.textContent = (t === state.teams[0]) 
+      ? document.getElementById('teamAname').value 
+      : document.getElementById('teamBname').value;
+    teamNameLabel.style.fontWeight = "bold";
+    teamNameLabel.style.fontSize = "16px";
+    teamNameLabel.style.textAlign = "center";
+    teamNameLabel.style.flex = "1"; // 讓它置中對齊
+    teamNameLabel.style.minWidth = "120px";
+
+    headerRow.appendChild(h);
+    headerRow.appendChild(teamNameLabel);
+    card.appendChild(headerRow);
+
+    // 🔹 球狀態
+    const ballsWrap = document.createElement('div');
+    ballsWrap.className='balls';
+    for(let i=1;i<=state.ballsPerTeam;i++){
+      const key = `${t}-${i}`;
+      const b = state.balls[key];
+      const el = document.createElement('div');
+      el.className = `ball s${b.state}`;
+      let lab = `${b.id}: `;
+      if(b.state===0) lab += '競技';
+      else if(b.state===1) lab += '初關(黃)';
+      else if(b.state===2) lab += '二關(紅)';
+      else lab += '淘汰';
+      el.innerHTML = `<div style="font-weight:700">${lab}</div>
+        <div class="small">locked by: ${b.locked_by.join(', ')||'-'}</div>`;
+      ballsWrap.appendChild(el);
+    }
+    card.appendChild(ballsWrap);
+
+    // 🔹 暫停 / 犯規 / 佈球
+    const controls = document.createElement('div');
+    controls.style.marginTop = "10px";
+    controls.innerHTML = `
+      <div><b>暫停:</b> <span id="${t}-pause">${state.stats[t].pause}</span> 
+        <button onclick="addPause('${t}')">+1</button></div>
+      <div><b>犯規:</b> <span id="${t}-foul">${state.stats[t].foul}</span> 
+        <button onclick="addFoul('${t}')">+1</button></div>
+      <div><b>佈球:</b> 
+        <span id="${t}-setup">${state.stats[t].setup}</span> 
+        <button id="${t}-setup-btn" onclick="addSetup('${t}')">+1</button> 
+        <button onclick="resetSetup('${t}')">Reset</button>
+      </div>
+    `;
+    card.appendChild(controls);
+
+    area.appendChild(card);
+
+    // 🔹 檢查佈球達 3 次 → 隱藏 +1 按鈕
+    if(state.stats[t].setup >= 3){
+      const btn = document.getElementById(`${t}-setup-btn`);
+      if(btn) btn.style.display = "none";
+    }
+  }
+
+  // 🔹 更新歷史紀錄
+  const hist = document.getElementById('history');
+  hist.innerHTML = state.history.slice().reverse().map(x=>`<div>${x}</div>`).join('');
+  document.getElementById('scoreArea').style.display='none';
+  document.getElementById('shootoutArea').innerHTML='';
+}
+
+
+function keyOf(team, id){ return `${team}-${id}`; }
+
+function doHit(attTeam, attBall, tgtTeam, tgtBall){
+  const aKey = keyOf(attTeam, attBall);
+  const tKey = keyOf(tgtTeam, tgtBall);
+  const attacker = state.balls[aKey];
+  const target = state.balls[tKey];
+  if(!attacker || !target){ alert('球不存在'); return; }
+  // save for undo (deep-ish copy)
+  state.undoStack.push(JSON.stringify(state.balls));
+  // Ignore hits if attacker eliminated
+  if(attacker.state >=3){
+    pushHistory(`${aKey} 企圖攻擊 ${tKey} 但攻擊者已淘汰（無效）`);
+    return;
+  }
+  // If target already eliminated -> no effect
+  if(target.state >=3){
+    pushHistory(`${aKey} 攻擊 ${tKey} 但目標已淘汰（無效）`);
+    return;
+  }
+
+  // Case: mis-hit (same team)
+  if(attacker.team === target.team){
+    // attacker out
+    attacker.state = 3;
+    pushHistory(`${aKey} 誤擊 ${tKey} -> 誤擊者 ${aKey} 出局；${tKey} 被初關/加關`);
+    // Increase target state by 1 (unless already eliminated) and record MIS lock
+    if(target.state < 3){
+      target.state = Math.min(3, target.state + 1);
+      // mark MIS lock with prefix so we can differentiate
+      target.locked_by.push(`MIS-${aKey}`);
+      if(target.state>=3){
+        // fully eliminated: clear locked_by (per manual it's out)
+        // leave locked_by cleared
+        target.locked_by = [];
+        pushHistory(`${tKey} 已被誤擊出局`);
+      } else {
+        pushHistory(`${tKey} 現在為 ${target.state===1? '初關(黃)':'二關(紅)'} (被 MIS-${aKey})`);
+      }
+    }
+    // Also, rule: when a team member hits an opponent ball, that may free mis-hit locked balls
+    renderBoard();
+    return;
+  }
+
+  // Normal attack: attacker hits opponent's ball
+  // Add attacker key to target.locked_by
+  target.locked_by.push(aKey);
+  // If target was locked_by mis entries? We'll handle 解關 logic below.
+  // If this opponent ball (the one being hit) currently locks any of attacker's team balls, then hitting it will free those.
+  // But first, increment target state
+  target.state = Math.min(3, target.state + 1);
+  if(target.state>=3){
+    // eliminated: clear locked_by
+    target.locked_by = [];
+    pushHistory(`${aKey} 擊中 ${tKey} -> 淘汰`);
+  } else {
+    pushHistory(`${aKey} 擊中 ${tKey} -> ${target.state===1? '初關(黃)':'二關(紅)'} (locked_by 上加 ${aKey})`);
+  }
+
+  // 解關檢查：當某隊擊中對方球 X 時，要檢查是否因此可以解救我方被 X 鎖住的球
+  // (若被擊中的球 (tKey) 曾鎖住攻擊方的某顆球，則移除其在那顆球 locked_by 的對應 entry 並減少該球狀態)
+  // 找到攻擊者隊伍中任一球其 locked_by 包含 tKey (也就是那顆被擊中球原本鎖住我方球)：
+  const myTeam = attacker.team;
+  const oppTeam = target.team;
+  let freedAny = 0;
+  // iterate my team balls and remove one entry per matching
+  for(let i=1;i<=state.ballsPerTeam;i++){
+    const bk = `${myTeam}-${i}`;
+    const myBall = state.balls[bk];
+    // find index of tKey in locked_by
+    const idx = myBall.locked_by.indexOf(tKey);
+    if(idx !== -1){
+      // remove one instance
+      myBall.locked_by.splice(idx,1);
+      // decrement its state by 1 (but not below 0)
+      if(myBall.state>0) myBall.state = myBall.state - 1;
+      freedAny++;
+      pushHistory(`${aKey} 擊中 ${tKey} ，解救了我方 ${bk}（被 ${tKey} 所關） -> ${myBall.state===0? '競技':'初關/二關'} `);
+      
+      // NOTE: per手冊，一次擊中可解救一顆被該球關住的我方球；繼續尋找其他被同一球關住的（若多個則會逐個解救）
+      // continue to search: keep freeing as long as target ball tKey had been locking my balls
+    }
+  }
+  // 如果沒有 freedAny，依手冊規定：若該被擊中球並沒有鎖住我方任何球，但我方有因「誤擊」而被關的球
+  // 那麼可用擊中一顆不鎖住任何我方球的對方球來解救誤擊所關住的球
+  if(freedAny===0){
+    // find if attacker.team 有因 MIS 而被關的球
+    let misLockedBalls = [];
+    for(let i=1;i<=state.ballsPerTeam;i++){
+      const bk = `${myTeam}-${i}`;
+      const myBall = state.balls[bk];
+      // if locked_by contains an entry starting with MIS-
+      if(myBall.locked_by.some(x=>x.startsWith('MIS-'))){
+        misLockedBalls.push(bk);
+      }
+    }
+    if(misLockedBalls.length>0){
+      // But per rule we may only use this hit to free MIS if the hit opponent ball (tKey) is NOT currently locking any myTeam ball.
+      // Make sure tKey isn't currently in locked_by of any of my team balls (we already tested above)
+      let tkeyLocksAny = false;
+      for(let i=1;i<=state.ballsPerTeam;i++){
+        const bk = `${myTeam}-${i}`;
+        const myBall = state.balls[bk];
+        if(myBall.locked_by.includes(tKey)) { tkeyLocksAny = true; break; }
+      }
+      if(!tkeyLocksAny){
+        // free one mis-locked ball (先前被誤擊的那顆). 找出第一個有 MIS- 的
+        for(let i=1;i<=state.ballsPerTeam;i++){
+          const bk = `${myTeam}-${i}`;
+          const myBall = state.balls[bk];
+          const midx = myBall.locked_by.findIndex(x=>x.startsWith('MIS-'));
+          if(midx!==-1){
+            // remove that MIS entry
+            myBall.locked_by.splice(midx,1);
+            // decrement its state by 1
+            if(myBall.state>0) myBall.state = myBall.state - 1;
+            pushHistory(`${aKey} 擊中 ${tKey} (未鎖我方球) -> 解救了因誤擊被關的我方 ${bk}`);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  renderBoard();
+}
+
+
+document.getElementById('btnHit').addEventListener('click', ()=>{
+  const attTeam = document.getElementById('attTeam').value;
+  const attBall = Number(document.getElementById('attBall').value);
+  const tgtTeam = document.getElementById('tgtTeam').value;
+  const tgtBall = Number(document.getElementById('tgtBall').value);
+  doHit(attTeam, attBall, tgtTeam, tgtBall);
+});
+document.getElementById('btnUndo').addEventListener('click', ()=>{
+  if(state.undoStack.length===0){ alert('無可還原動作'); return;}
+  const prev = state.undoStack.pop();
+  state.balls = JSON.parse(prev);
+  pushHistory('已還原上一步動作 (undo)');
+  renderBoard();
+});
+
+//產生pdf
+document.getElementById("btnPdf").addEventListener("click", () => {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF("p", "pt", "a4");
+
+  const target = document.getElementById("matchArea");
+
+  // 🔹 先隱藏按鈕
+  const buttons = target.querySelectorAll("button");
+  buttons.forEach(btn => btn.style.display = "none");
+
+  // 🔹 暫時固定寬度，避免手機畫面擠壓
+  target.style.width = "800px";
+
+  html2canvas(target, { scale: 2 }).then((canvas) => {
+    // 截圖後還原寬度
+    target.style.width = "";
+    // 截圖後恢復按鈕
+    buttons.forEach(btn => btn.style.display = "inline-block");
+
+    const imgData = canvas.toDataURL("image/png");
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const marginTop = 42;   // 1.5cm
+    const marginLeft = 28;  // 1cm
+    const marginRight = 28; // 1cm
+
+    const pdfWidth = pageWidth - marginLeft - marginRight;
+    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+    doc.addImage(imgData, "PNG", marginLeft, marginTop, pdfWidth, pdfHeight);
+
+    // 檔名 wiser_YYYYMMDD_HHmmss.pdf
+    const now = new Date();
+    const filename = `wiser_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}${String(now.getSeconds()).padStart(2,"0")}.pdf`;
+    doc.save(filename);
+  });
+});
+
+
+
+// history log
+function pushHistory(text){
+  const timestamp = new Date().toLocaleTimeString();
+  state.history.push(`${timestamp} — ${text}`);
+  if(state.history.length > 1000) state.history.shift();
+  renderBoard();
+}
+
+// compute weighted score
+function computeWeighted(){
+  const teamScores = {};
+  for(const t of state.teams){
+    teamScores[t] = {counts:{0:0,1:0,2:0,3:0}, score:0};
+  }
+  for(const key in state.balls){
+    const b = state.balls[key];
+    teamScores[b.team].counts[b.state] += 1;
+  }
+  for(const t of state.teams){
+    const c = teamScores[t].counts;
+    teamScores[t].score = c[0]*WEIGHT[0] + c[1]*WEIGHT[1] + c[2]*WEIGHT[2] + c[3]*WEIGHT[3];
+  }
+  return teamScores;
+}
+
+document.getElementById('btnCalc').addEventListener('click', ()=>{
+  const scores = computeWeighted();
+  
+  // 取隊名（使用者輸入）
+  const teamA = state.teams[0];
+  const teamB = state.teams[1];
+
+  // 填入競技數量與分數
+  document.getElementById('teamA_competitive').innerText = scores[teamA].counts[0];
+  document.getElementById('teamB_competitive').innerText = scores[teamB].counts[0];
+  document.getElementById('teamA_competitiveScore').innerText = scores[teamA].counts[0] * 5;
+  document.getElementById('teamB_competitiveScore').innerText = scores[teamB].counts[0] * 5;
+
+  // 填入初關
+  document.getElementById('teamA_firstLock').innerText = scores[teamA].counts[1];
+  document.getElementById('teamB_firstLock').innerText = scores[teamB].counts[1];
+  document.getElementById('teamA_firstLockScore').innerText = scores[teamA].counts[1] * 2;
+  document.getElementById('teamB_firstLockScore').innerText = scores[teamB].counts[1] * 2;
+
+  // 填入二關
+  document.getElementById('teamA_secondLock').innerText = scores[teamA].counts[2];
+  document.getElementById('teamB_secondLock').innerText = scores[teamB].counts[2];
+  document.getElementById('teamA_secondLockScore').innerText = scores[teamA].counts[2] * 1;
+  document.getElementById('teamB_secondLockScore').innerText = scores[teamB].counts[2] * 1;
+
+  // 加總分數
+  document.getElementById('teamA_totalScore').innerText = scores[teamA].score;
+  document.getElementById('teamB_totalScore').innerText = scores[teamB].score;
+
+  // 判定勝負或平手
+  const s0 = scores[teamA].score;
+  const s1 = scores[teamB].score;
+
+  if(s0 > s1){
+    document.getElementById("teamA_result").innerText = "勝";
+    document.getElementById("teamB_result").innerText = "敗";
+    pushHistory(`比賽結束：${teamA} 以 ${s0} vs ${s1} 獲勝`);
+    //alert(`${teamA} 獲勝！ (${s0} vs ${s1})`);
+  } else if(s1 > s0){
+    document.getElementById("teamA_result").innerText = "敗";
+    document.getElementById("teamB_result").innerText = "勝";
+    pushHistory(`比賽結束：${teamB} 以 ${s1} vs ${s0} 獲勝`);
+    //alert(`${teamB} 獲勝！ (${s1} vs ${s0})`);
+  } else {
+    document.getElementById("teamA_result").innerText = "平手";
+    document.getElementById("teamB_result").innerText = "平手";
+    pushHistory(`加權分平手 (${s0} vs ${s1})，進入 5 米定點球`);
+    //alert(`平手 (${s0} vs ${s1}) → 進入 5 米定點球 (Shootout)`);
+    
+    setTimeout(()=> startShootout(), 100);
+  }
+
+  area.innerHTML = html;
+  renderBoard();
+});
+
+// --- Shootout (5 米定點球) ----
+// We'll implement interactive 5-shot each; then sudden death if still tie.
+let shootout = {
+  active:false,
+  order:[], // arrays of players keys for each team for shootout order (strings)
+  idxA:0, idxB:0,
+  resultsA:[], resultsB:[],
+  nextTurnTeam: null,
+  round: 1,
+  maxRound:5
+};
+
+function startShootout(){
+  // ask user to set the 5-player order for each team; to simplify we will use 1..min(7,balls) order or allow custom via prompt
+  const tA = state.teams[0], tB = state.teams[1];
+  const n = Math.min(state.ballsPerTeam,5);
+  // default order: 1..n
+  shootout.order = [];
+  shootout.order[0] = [];
+  shootout.order[1] = [];
+  for(let i=1;i<=n;i++){
+    shootout.order[0].push(`${tA}-${i}`);
+    shootout.order[1].push(`${tB}-${i}`);
+  }
+  shootout.resultsA = Array(n).fill(null);
+  shootout.resultsB = Array(n).fill(null);
+  shootout.active = true;
+  shootout.nextTurnTeam = 0; // team index 0 starts? Manual says toss to decide; we'll default team0 first and show option to swap
+  renderShootoutUI();
+}
+
+function renderShootoutUI(){
+  const area = document.getElementById('shootoutArea');
+  if(!shootout.active){ area.innerHTML=''; return; }
+  const tA = state.teams[0], tB = state.teams[1];
+  let html = `<div class="shootout"><h4>5米定點球 (Shootout)</h4>
+    <div class="small">（按順序輪流，預設 ${tA} 先）</div>
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <div style="flex:1">
+        <div><b>${tA}</b></div>
+        ${shootout.order[0].map((p,i)=>`<div>${p}： ${renderHitBtn('A',i)}</div>`).join('')}
+      </div>
+      <div style="flex:1">
+        <div><b>${tB}</b></div>
+        ${shootout.order[1].map((p,i)=>`<div>${p}： ${renderHitBtn('B',i)}</div>`).join('')}
+      </div>
+    </div>
+
+    <div style="margin-top:10px">
+      <button onclick="toggleShootoutStarter()" class="btn">換邊（改由 ${state.teams[ shootout.nextTurnTeam===0?1:0 ]} 先）</button>
+      <button onclick="finalizeShootout()" class="btn">結束 shootout（若已完成）</button>
+    </div>
+  </div>`;
+  area.innerHTML = html;
+}
+
+function renderHitBtn(teamChar, idx){
+  // teamChar 'A' or 'B'
+  const ti = teamChar==='A'?0:1;
+  const res = ti===0? shootout.resultsA[idx] : shootout.resultsB[idx];
+  if(res===null) return `<button onclick="recordShootout(${ti},${idx},true)" class="btn">命中</button>
+                        <button onclick="recordShootout(${ti},${idx},false)" class="btn danger">未中</button>`;
+  return res? `<span style="color:green">命中</span>` : `<span style="color:#777">未中</span>`;
+}
+
+function recordShootout(teamIdx, idx, hit){
+  if(!shootout.active) return;
+  if(teamIdx===0) shootout.resultsA[idx] = hit;
+  else shootout.resultsB[idx] = hit;
+  pushHistory(`Shootout: ${ (teamIdx===0? state.teams[0]:state.teams[1]) } ${ (teamIdx===0? shootout.order[0][idx] : shootout.order[1][idx]) } -> ${hit? '命中':'未中' }`);
+  renderShootoutUI();
+}
+
+function toggleShootoutStarter(){
+  shootout.nextTurnTeam = 1 - shootout.nextTurnTeam;
+  renderShootoutUI();
+}
+
+function finalizeShootout(){
+  // compute totals of first 5
+  const n = shootout.order[0].length;
+  let sumA = shootout.resultsA.reduce((acc,v)=>acc + (v?1:0), 0);
+  let sumB = shootout.resultsB.reduce((acc,v)=>acc + (v?1:0), 0);
+  if(sumA>sumB){
+    pushHistory(`Shootout 結果：${state.teams[0]} 以 ${sumA} vs ${sumB} 勝出`);
+    alert(`Shootout：${state.teams[0]} 勝 (${sumA} vs ${sumB})`);
+  } else if(sumB>sumA){
+    pushHistory(`Shootout 結果：${state.teams[1]} 以 ${sumB} vs ${sumA} 勝出`);
+    alert(`Shootout：${state.teams[1]} 勝 (${sumB} vs ${sumA})`);
+  } else {
+    // sudden death: allow additional single-turn throws by original order until tie broken
+    const tie = confirm(`5人輪流後仍平手 (${sumA} vs ${sumB})。是否進入驟死 (Sudden Death)？按「確定」開始驟死手動記錄（每隊一次互換）。`);
+    if(tie){
+      // We'll let user manually record one-by-one more throws by using same UI (they can press命中/未中 for next null slot by adding to arrays)
+      // append one more slot
+      shootout.order[0].push(`${state.teams[0]}-SD${shootout.order[0].length+1}`);
+      shootout.order[1].push(`${state.teams[1]}-SD${shootout.order[1].length+1}`);
+      shootout.resultsA.push(null); shootout.resultsB.push(null);
+      renderShootoutUI();
+      return;
+    } else {
+      pushHistory('Shootout 結束但仍平手，未進行驟死');
+      alert('Shootout still tied and no sudden death performed.');
+    }
+  }
+  shootout.active = false;
+  renderShootoutUI();
+}
+
+// init on load
+initGame();
+
+</script>
+</body>
+</html>

@@ -318,9 +318,11 @@
   <label>攻擊球號: <select id="attBall"></select></label>
   <label>目標隊: <select id="tgtTeam"></select></label>
   <label>目標球號: <select id="tgtBall"></select></label>
+<div class="action-row">
   <button id="btnHit" class="btn">執行擊中</button>
   <button id="btnUndo" class="btn">Undo Last</button>
  </div>
+</div>
 
 <!-- 計分板 -->
 <div class="board" id="boardArea"></div>
@@ -752,7 +754,7 @@ function doHit(attTeam, attBall, tgtTeam, tgtBall){
     target.locked_by = [];
     pushHistory(`${aKey} 擊中 ${tKey} -> 淘汰`);
   } else {
-    pushHistory(`${aKey} 擊中 ${tKey} -> ${target.state===1? '初關(黃)':'二關(紅)'} (locked_by 上加 ${aKey})`);
+    pushHistory(`${aKey} 擊中 ${tKey} -> ${target.state===1? '初關(黃)':'二關(紅)'} (locked_by  ${aKey})`);
   }
 
   // 解關檢查：當某隊擊中對方球 X 時，要檢查是否因此可以解救我方被 X 鎖住的球

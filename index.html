@@ -99,6 +99,22 @@
     }
   }
 
+  @media (max-width: 600px) {
+    .team-card {
+      flex: 1 1 100%;
+    }
+    .balls {
+      justify-content: center;
+    }
+    h3 {
+      font-size: 18px;
+    }
+    .small {
+      font-size: 12px;
+    }
+  }
+
+
   /* ===== 計分板與球狀態 ===== */
   .board {
     display: flex;
@@ -191,31 +207,7 @@
     font-size: 16px;
     color: #333;
   }
-  /* 手機版：直向顯示 */
-  /* @media(max-width:600px){
-    .result-table, .result-table thead, .result-table tbody, .result-table tr {
-      display: block;
-      width: 100%;
-    }
-    .result-table tr {
-      margin-bottom: 10px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .result-table td, .result-table th {
-      display: block;
-      text-align: left;
-      padding: 8px;
-      border: none;
-      border-bottom: 1px solid #eee;
-    }
-    .result-table td:last-child {
-      border-bottom: none;
-    }
-  }
-  */
-
+  
 @media screen and (max-width: 600px) {
   .result-table {
     display: flex;
@@ -531,11 +523,13 @@ function initGame(){
   const a = '紅球';
   const b = '白球';
   const n = parseInt(document.getElementById('ballsPerTeam').value)||7;
+  // 初始化 state
   state.teams = [a,b];
   state.ballsPerTeam = n;
   state.balls = {};
   state.history = [];
   state.undoStack = [];
+  // 初始化各球狀態
   for(const t of state.teams){
     for(let i=1;i<=n;i++){
       state.balls[`${t}-${i}`] = {team:t, id:i, state:0, locked_by:[]};
@@ -547,6 +541,18 @@ function initGame(){
   // 🔹 更新比賽結果表的隊名
   document.getElementById("resultTeamA").innerText = ta;
   document.getElementById("resultTeamB").innerText = tb;
+
+  // ✅ 預設攻擊方 / 目標隊
+  const attTeamSel = document.getElementById('attTeam');
+  const tgtTeamSel = document.getElementById('tgtTeam');
+  const attBallSel = document.getElementById('attBall');
+  const tgtBallSel = document.getElementById('tgtBall');
+
+  // 預設紅球攻擊、白球防守
+  attTeamSel.value = "紅球";
+  tgtTeamSel.value = "白球";
+  attBallSel.value = "1";
+  tgtBallSel.value = "1";
 }
 
 //攻擊方 改變 → 攻擊球號 只會顯示「狀態=競技」的球號
@@ -605,66 +611,88 @@ function renderSelectors(){
 }
 
 
-function renderBoard(){
+function renderBoard() {
   const area = document.getElementById('boardArea');
   area.innerHTML = '';
 
-  for(const t of state.teams){
+  for (const t of state.teams) {
     // 初始化隊伍統計資料
-    if(!state.stats) state.stats = {};
-    if(!state.stats[t]) {
-      state.stats[t] = {pause:0, foul:0, setup:0};
+    if (!state.stats) state.stats = {};
+    if (!state.stats[t]) {
+      state.stats[t] = { pause: 0, foul: 0, setup: 0 };
     }
 
     const card = document.createElement('div');
-    card.className='team-card';
+    card.className = 'team-card';
+    card.style.flex = "1";
+    card.style.display = "flex";
+    card.style.flexDirection = "column";
+    card.style.justifyContent = "space-between";
 
-    // 🔹 Header：系統隊名 (紅球/白球) + 使用者輸入的隊名
-    const headerRow = document.createElement('div');
-    headerRow.style.display = "flex";
-    headerRow.style.justifyContent = "space-between";
-    headerRow.style.alignItems = "center";
-    headerRow.style.marginBottom = "6px";
-    headerRow.style.flexWrap = "wrap"; // RWD，自動換行
+    // 標題列（隊名 + 使用者輸入名稱）
+    const header = document.createElement('div');
+    header.style.display = "flex";
+    header.style.justifyContent = "space-between";
+    header.style.alignItems = "center";
+    header.style.flexWrap = "wrap";
 
     const h = document.createElement('h3');
-    h.textContent = `${t}`; // 系統隊名
+    h.textContent = `${t}`;
     h.style.margin = "0";
+    h.style.whiteSpace = "nowrap";
 
-    const teamNameLabel = document.createElement('div');
-    teamNameLabel.textContent = (t === state.teams[0]) 
-      ? document.getElementById('teamAname').value 
-      : document.getElementById('teamBname').value;
-    teamNameLabel.style.fontWeight = "bold";
-    teamNameLabel.style.fontSize = "16px";
-    teamNameLabel.style.textAlign = "center";
-    teamNameLabel.style.flex = "1"; // 讓它置中對齊
-    teamNameLabel.style.minWidth = "120px";
+    const teamNameInput = document.getElementById(
+      t.includes("紅") ? "teamAname" : "teamBname"
+    );
+    const userTeamName = teamNameInput ? teamNameInput.value : t;
 
-    headerRow.appendChild(h);
-    headerRow.appendChild(teamNameLabel);
-    card.appendChild(headerRow);
+    const teamNameDisplay = document.createElement('div');
+    teamNameDisplay.textContent = userTeamName;
+    teamNameDisplay.style.fontWeight = "700";
+    teamNameDisplay.style.textAlign = "center";
+    teamNameDisplay.style.flex = "1";
+    teamNameDisplay.style.fontSize = "1.1em";
+    teamNameDisplay.style.color = "#444";
 
-    // 🔹 球狀態
+    header.appendChild(h);
+    header.appendChild(teamNameDisplay);
+    card.appendChild(header);
+
+    // 球狀態顯示
     const ballsWrap = document.createElement('div');
-    ballsWrap.className='balls';
-    for(let i=1;i<=state.ballsPerTeam;i++){
+    ballsWrap.className = 'balls';
+    for (let i = 1; i <= state.ballsPerTeam; i++) {
       const key = `${t}-${i}`;
       const b = state.balls[key];
       const el = document.createElement('div');
       el.className = `ball s${b.state}`;
       let lab = `${b.id}: `;
-      if(b.state===0) lab += '競技';
-      else if(b.state===1) lab += '初關(黃)';
-      else if(b.state===2) lab += '二關(紅)';
+      if (b.state === 0) lab += '競技';
+      else if (b.state === 1) lab += '初關(黃)';
+      else if (b.state === 2) lab += '二關(紅)';
       else lab += '淘汰';
-      el.innerHTML = `<div style="font-weight:700">${lab}</div>
-        <div class="small">locked by: ${b.locked_by.join(', ')||'-'}</div>`;
+
+      // 🕒 locked_by 顯示處理
+      let lockedList = "-";
+      if (b.locked_by && b.locked_by.length > 0) {
+        lockedList = b.locked_by
+          .map(l => {
+            if (typeof l === "string") return l; // 舊資料兼容
+            const time = new Date(l.time);
+            const timeStr = time.toLocaleTimeString('zh-TW', { hour12: false });
+            return `${l.key} @ ${timeStr}`;
+          })
+          .join("<br>");
+      }
+
+      el.innerHTML = `
+        <div style="font-weight:700">${lab}</div>
+        <div class="small">locked by:<br>${lockedList}</div>`;
       ballsWrap.appendChild(el);
     }
     card.appendChild(ballsWrap);
 
-    // 🔹 暫停 / 犯規 / 佈球
+    // 隊伍統計控制區
     const controls = document.createElement('div');
     controls.style.marginTop = "10px";
     controls.innerHTML = `
@@ -680,141 +708,138 @@ function renderBoard(){
     `;
     card.appendChild(controls);
 
-    area.appendChild(card);
-
-    // 🔹 檢查佈球達 3 次 → 隱藏 +1 按鈕
-    if(state.stats[t].setup >= 3){
-      const btn = document.getElementById(`${t}-setup-btn`);
-      if(btn) btn.style.display = "none";
+    // ✅ 佈球達3次隱藏 +1 按鈕（僅Reset後恢復）
+    const setupBtn = controls.querySelector(`#${t}-setup-btn`);
+    if (state.stats[t].setup >= 3 && setupBtn) {
+      setupBtn.style.display = "none";
     }
+
+    area.appendChild(card);
   }
 
-  // 🔹 更新歷史紀錄
+  // 更新歷史紀錄
   const hist = document.getElementById('history');
-  hist.innerHTML = state.history.slice().reverse().map(x=>`<div>${x}</div>`).join('');
-  document.getElementById('scoreArea').style.display='none';
-  document.getElementById('shootoutArea').innerHTML='';
+  hist.innerHTML = state.history
+    .slice()
+    .reverse()
+    .map(x => `<div>${x}</div>`)
+    .join('');
+
+  // 隱藏不需顯示的區域
+  document.getElementById('scoreArea').style.display = 'none';
+  document.getElementById('shootoutArea').innerHTML = '';
 }
+
 
 
 function keyOf(team, id){ return `${team}-${id}`; }
 
-function doHit(attTeam, attBall, tgtTeam, tgtBall){
+function doHit(attTeam, attBall, tgtTeam, tgtBall) {
   const aKey = keyOf(attTeam, attBall);
   const tKey = keyOf(tgtTeam, tgtBall);
   const attacker = state.balls[aKey];
   const target = state.balls[tKey];
-  if(!attacker || !target){ alert('球不存在'); return; }
-  // save for undo (deep-ish copy)
+  if (!attacker || !target) { alert('球不存在'); return; }
+
+  // save for undo
   state.undoStack.push(JSON.stringify(state.balls));
-  // Ignore hits if attacker eliminated
-  if(attacker.state >=3){
+
+  // 若攻擊者已淘汰 → 無效
+  if (attacker.state >= 3) {
     pushHistory(`${aKey} 企圖攻擊 ${tKey} 但攻擊者已淘汰（無效）`);
     return;
   }
-  // If target already eliminated -> no effect
-  if(target.state >=3){
+  // 若目標已淘汰 → 無效
+  if (target.state >= 3) {
     pushHistory(`${aKey} 攻擊 ${tKey} 但目標已淘汰（無效）`);
     return;
   }
 
-  // Case: mis-hit (same team)
-  if(attacker.team === target.team){
-    // attacker out
+  // 🟥 誤擊處理
+  if (attacker.team === target.team) {
     attacker.state = 3;
-    pushHistory(`${aKey} 誤擊 ${tKey} -> 誤擊者 ${aKey} 出局；${tKey} 被初關/加關`);
-    // Increase target state by 1 (unless already eliminated) and record MIS lock
-    if(target.state < 3){
+    pushHistory(`${aKey} 誤擊 ${tKey} → 攻擊者出局；${tKey} 被加關`);
+    if (target.state < 3) {
       target.state = Math.min(3, target.state + 1);
-      // mark MIS lock with prefix so we can differentiate
-      target.locked_by.push(`MIS-${aKey}`);
-      if(target.state>=3){
-        // fully eliminated: clear locked_by (per manual it's out)
-        // leave locked_by cleared
+      target.locked_by.push({ key: `MIS-${aKey}`, time: Date.now() });
+      if (target.state >= 3) {
         target.locked_by = [];
         pushHistory(`${tKey} 已被誤擊出局`);
       } else {
-        pushHistory(`${tKey} 現在為 ${target.state===1? '初關(黃)':'二關(紅)'} (被 MIS-${aKey})`);
+        pushHistory(`${tKey} 現在為 ${target.state === 1 ? '初關(黃)' : '二關(紅)'} (被 MIS-${aKey})`);
       }
     }
-    // Also, rule: when a team member hits an opponent ball, that may free mis-hit locked balls
     renderBoard();
     return;
   }
 
-  // Normal attack: attacker hits opponent's ball
-  // Add attacker key to target.locked_by
-  target.locked_by.push(aKey);
-  // If target was locked_by mis entries? We'll handle 解關 logic below.
-  // If this opponent ball (the one being hit) currently locks any of attacker's team balls, then hitting it will free those.
-  // But first, increment target state
+  // 🟦 正常擊中：攻擊者擊中對方球
+  target.locked_by.push({ key: aKey, time: Date.now() });
   target.state = Math.min(3, target.state + 1);
-  if(target.state>=3){
-    // eliminated: clear locked_by
+  if (target.state >= 3) {
     target.locked_by = [];
-    pushHistory(`${aKey} 擊中 ${tKey} -> 淘汰`);
+    pushHistory(`${aKey} 擊中 ${tKey} → 淘汰`);
   } else {
-    pushHistory(`${aKey} 擊中 ${tKey} -> ${target.state===1? '初關(黃)':'二關(紅)'} (locked_by  ${aKey})`);
+    pushHistory(`${aKey} 擊中 ${tKey} → ${target.state === 1 ? '初關(黃)' : '二關(紅)'} (locked_by: ${aKey})`);
   }
 
-  // 解關檢查：當某隊擊中對方球 X 時，要檢查是否因此可以解救我方被 X 鎖住的球
-  // (若被擊中的球 (tKey) 曾鎖住攻擊方的某顆球，則移除其在那顆球 locked_by 的對應 entry 並減少該球狀態)
-  // 找到攻擊者隊伍中任一球其 locked_by 包含 tKey (也就是那顆被擊中球原本鎖住我方球)：
+  // 🟢 解關邏輯：按時間順序只解救一顆被該球鎖住的我方球
   const myTeam = attacker.team;
   const oppTeam = target.team;
   let freedAny = 0;
-  // iterate my team balls and remove one entry per matching
-  for(let i=1;i<=state.ballsPerTeam;i++){
+  let earliest = null;
+
+  // 找出所有被 tKey 鎖住的我方球（根據 locked_by.time 最早的）
+  for (let i = 1; i <= state.ballsPerTeam; i++) {
     const bk = `${myTeam}-${i}`;
     const myBall = state.balls[bk];
-    // find index of tKey in locked_by
-    const idx = myBall.locked_by.indexOf(tKey);
-    if(idx !== -1){
-      // remove one instance
-      myBall.locked_by.splice(idx,1);
-      // decrement its state by 1 (but not below 0)
-      if(myBall.state>0) myBall.state = myBall.state - 1;
-      freedAny++;
-      pushHistory(`${aKey} 擊中 ${tKey} ，解救了我方 ${bk}（被 ${tKey} 所關） -> ${myBall.state===0? '競技':'初關/二關'} `);
-      
-      // NOTE: per手冊，一次擊中可解救一顆被該球關住的我方球；繼續尋找其他被同一球關住的（若多個則會逐個解救）
-      // continue to search: keep freeing as long as target ball tKey had been locking my balls
+    for (let j = 0; j < myBall.locked_by.length; j++) {
+      const lock = myBall.locked_by[j];
+      if (lock.key === tKey) {
+        if (!earliest || lock.time < earliest.time) {
+          earliest = { ball: myBall, index: j, key: bk, time: lock.time };
+        }
+      }
     }
   }
-  // 如果沒有 freedAny，依手冊規定：若該被擊中球並沒有鎖住我方任何球，但我方有因「誤擊」而被關的球
-  // 那麼可用擊中一顆不鎖住任何我方球的對方球來解救誤擊所關住的球
-  if(freedAny===0){
-    // find if attacker.team 有因 MIS 而被關的球
+
+  // 若有找到最早被鎖住的球，解救它
+  if (earliest) {
+    const { ball, index, key } = earliest;
+    ball.locked_by.splice(index, 1);
+    if (ball.state > 0) ball.state -= 1;
+    freedAny++;
+    pushHistory(`${aKey} 擊中 ${tKey} ，解救了 ${key}（最早被 ${tKey} 鎖住） → ${ball.state === 0 ? '競技' : '初關/二關'}`);
+  }
+
+  // 若沒解到，則進入「誤擊解救檢查」
+  if (freedAny === 0) {
     let misLockedBalls = [];
-    for(let i=1;i<=state.ballsPerTeam;i++){
+    for (let i = 1; i <= state.ballsPerTeam; i++) {
       const bk = `${myTeam}-${i}`;
       const myBall = state.balls[bk];
-      // if locked_by contains an entry starting with MIS-
-      if(myBall.locked_by.some(x=>x.startsWith('MIS-'))){
+      if (myBall.locked_by.some(x => x.key.startsWith('MIS-'))) {
         misLockedBalls.push(bk);
       }
     }
-    if(misLockedBalls.length>0){
-      // But per rule we may only use this hit to free MIS if the hit opponent ball (tKey) is NOT currently locking any myTeam ball.
-      // Make sure tKey isn't currently in locked_by of any of my team balls (we already tested above)
+
+    if (misLockedBalls.length > 0) {
       let tkeyLocksAny = false;
-      for(let i=1;i<=state.ballsPerTeam;i++){
+      for (let i = 1; i <= state.ballsPerTeam; i++) {
         const bk = `${myTeam}-${i}`;
         const myBall = state.balls[bk];
-        if(myBall.locked_by.includes(tKey)) { tkeyLocksAny = true; break; }
+        if (myBall.locked_by.some(x => x.key === tKey)) { tkeyLocksAny = true; break; }
       }
-      if(!tkeyLocksAny){
-        // free one mis-locked ball (先前被誤擊的那顆). 找出第一個有 MIS- 的
-        for(let i=1;i<=state.ballsPerTeam;i++){
+
+      if (!tkeyLocksAny) {
+        for (let i = 1; i <= state.ballsPerTeam; i++) {
           const bk = `${myTeam}-${i}`;
           const myBall = state.balls[bk];
-          const midx = myBall.locked_by.findIndex(x=>x.startsWith('MIS-'));
-          if(midx!==-1){
-            // remove that MIS entry
-            myBall.locked_by.splice(midx,1);
-            // decrement its state by 1
-            if(myBall.state>0) myBall.state = myBall.state - 1;
-            pushHistory(`${aKey} 擊中 ${tKey} (未鎖我方球) -> 解救了因誤擊被關的我方 ${bk}`);
+          const midx = myBall.locked_by.findIndex(x => x.key.startsWith('MIS-'));
+          if (midx !== -1) {
+            myBall.locked_by.splice(midx, 1);
+            if (myBall.state > 0) myBall.state -= 1;
+            pushHistory(`${aKey} 擊中 ${tKey}（未鎖球）→ 解救了因誤擊被關的 ${bk}`);
             break;
           }
         }
